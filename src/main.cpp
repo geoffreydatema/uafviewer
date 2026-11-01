@@ -15,11 +15,9 @@ using namespace std;
 int g_image_width = 0;
 int g_image_height = 0;
 
-// Packed 32-bit pixels (BGRA layout for Windows GDI: 0x00RRGGBB in little-endian)
 vector<uint32_t> g_pixel_buffer;
 
 void load_and_decode_uaf(const char* filepath) {
-    // 1. Open the file, read your header, extract dimensions.
     ifstream file(filepath, ios::binary);
     if (!file.is_open()) {
         cerr << "Failed to open file: " << filepath << "\n";
@@ -84,7 +82,6 @@ void load_and_decode_uaf(const char* filepath) {
         uaf_image_header.push_back(token);
     }
     
-    // 2. Set g_image_width and g_image_height to your file's dimensions.
     for (int i = 0; i < uaf_image_header.size(); i++) {
         if (uaf_image_header[i] == "width") {
             g_image_width = stoi(uaf_image_header[i + 1]);
@@ -103,9 +100,7 @@ void load_and_decode_uaf(const char* filepath) {
         }
         uaf_image_data.push_back(token);
     }
-    cout << uaf_image_data.size();
     
-    // 4. Populate g_pixel_buffer with your decoded pixels.
     for (int y = 0; y < g_image_height; ++y) {
         for (int x = 0; x < g_image_width; ++x) {
             int pixel_index = y * g_image_width + x;
