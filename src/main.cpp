@@ -172,8 +172,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow) {
-    // Optional: Pass filename via command line, e.g. "viewer.exe my_image.uaf"
-    const char* filename = (lpCmdLine && lpCmdLine[0] != '\0') ? lpCmdLine : "test.uaf";
+    const char* filename = (lpCmdLine && lpCmdLine[0] != '\0') ? lpCmdLine : "render.uaf";
     load_and_decode_uaf(filename);
 
     const wchar_t CLASS_NAME[] = L"UafViewerWindowClass";
@@ -186,15 +185,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
 
     RegisterClass(&wc);
 
-    // Calculate window rectangle so client area fits the image exactly
+    DWORD window_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+
     RECT wr = { 0, 0, g_image_width, g_image_height };
-    AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+    AdjustWindowRect(&wr, window_style, FALSE);
 
     HWND hwnd = CreateWindowEx(
         0,
         CLASS_NAME,
         L"UAF Image Viewer",
-        WS_OVERLAPPEDWINDOW,
+        window_style,
         CW_USEDEFAULT, CW_USEDEFAULT,
         wr.right - wr.left,
         wr.bottom - wr.top,
@@ -208,7 +208,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
 
     ShowWindow(hwnd, nCmdShow);
 
-    // Standard Win32 Message Loop
     MSG msg = {};
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
