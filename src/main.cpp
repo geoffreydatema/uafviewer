@@ -5,29 +5,121 @@
 #include <windows.h>
 #include <cstdint>
 #include <vector>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <print>
 
-// -----------------------------------------------------------------------------
-// YOUR CANVAS / IMAGE BUFFER
-// -----------------------------------------------------------------------------
-int g_image_width = 800;
-int g_image_height = 600;
+using namespace std;
+
+int g_image_width = 0;
+int g_image_height = 0;
 
 // Packed 32-bit pixels (BGRA layout for Windows GDI: 0x00RRGGBB in little-endian)
-std::vector<uint32_t> g_pixel_buffer;
+vector<uint32_t> g_pixel_buffer;
 
 void load_and_decode_uaf(const char* filepath) {
+    // 1. Open the file, read your header, extract dimensions.
+    ifstream file(filepath, ios::binary);
+    if (!file.is_open()) {
+        cerr << "Failed to open file: " << filepath << "\n";
+        return;
+    }
 
+    string token;
+    
+    // Expect ::{ global namespace entry
+    if (!(file >> token) || token != "::{") {
+        cerr << "Could not find UAF/Graveyard global namespace entry. Aborting.\n";
+        return;
+    }
+
+    // Expect !!uafheader operator
+    if(!(file >> token) or token != "!!uafheader") {
+        cerr << "File does not have a uafheader node. Aborting.\n";
+        return;
+    }
+
+    // Expect {<uafheader key value pairs>}
+    vector<string> uaf_header;
+    while (file >> token) {
+        if (!token.empty() && token.back() == ';') {
+            token.pop_back();
+            if (!token.empty()) {
+                uaf_header.push_back(token);
+            }
+            break;
+        }
+        uaf_header.push_back(token);
+    }
+    
+    string uaf_version;
+    for (int i = 0; i < uaf_header.size(); i++) {
+        if (uaf_header[i] == "version") {
+            uaf_version = uaf_header[i + 1];
+        }
+    }
+    
+    if (uaf_version != "0.1") {
+        cerr << "UAF file uses unknown version: " << uaf_version << ". Aborting.\n";
+        return;
+    }
+
+    // Expect !!uafimage operator
+    if(!(file >> token) or token != "!!uafimage") {
+        cerr << "File does not have a uafimage node. Aborting.\n";
+        return;
+    }
+
+    // Expect {<uaf image key value pairs>}
+    vector<string> uaf_image_header;
+    while (file >> token) {
+        if (!token.empty() && token.back() == '}') {
+            token.pop_back();
+            if (!token.empty()) {
+                uaf_image_header.push_back(token);
+            }
+            break;
+        }
+        uaf_image_header.push_back(token);
+    }
+    
+    // 2. Set g_image_width and g_image_height to your file's dimensions.
+    for (int i = 0; i < uaf_image_header.size(); i++) {
+        if (uaf_image_header[i] == "width") {
+            g_image_width = stoi(uaf_image_header[i + 1]);
+        }
+        if (uaf_image_header[i] == "height") {
+            g_image_height = stoi(uaf_image_header[i + 1]);
+        }
+    }
     g_pixel_buffer.resize(g_image_width * g_image_height);
+
+    // Expect rgb triplets
+    vector<string> uaf_image_data;
+    while (file >> token) {
+        if (token == ";") {
+            break;
+        }
+        uaf_image_data.push_back(token);
+    }
+    cout << uaf_image_data.size();
+    
+    // 4. Populate g_pixel_buffer with your decoded pixels.
     for (int y = 0; y < g_image_height; ++y) {
         for (int x = 0; x < g_image_width; ++x) {
-            uint8_t r = 128;
-            uint8_t g = 128;
-            uint8_t b = 128;
+            int pixel_index = y * g_image_width + x;
+            int raw_index = pixel_index * 3;
 
-            // In 32-bit little-endian memory: (B) | (G << 8) | (R << 16)
+            uint8_t r = stoi(uaf_image_data[raw_index]);
+            uint8_t g = stoi(uaf_image_data[raw_index + 1]);
+            uint8_t b = stoi(uaf_image_data[raw_index + 2]);
+
             g_pixel_buffer[y * g_image_width + x] = (r << 16) | (g << 8) | b;
         }
     }
+
+    file.close();
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
